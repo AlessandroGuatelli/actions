@@ -1,0 +1,28 @@
+name: Release Space Dashboard EXE
+
+on:
+  push:
+    tags:
+      - 'v*' # Si attiva automaticamente ogni volta che fai un push di un tag che inizia per 'v' (es. v1.0.0)
+
+jobs:
+  build:
+    runs-on: windows-latest 
+
+    steps:
+      - name: Checkout del codice del progetto
+        uses: actions/checkout@v4
+
+      - name: Richiama la Composite Action centralizzata
+        uses: AlessandroGuatelli/actions/build-python-exe@main
+        with:
+          python-version: '3.12'
+          script-name: 'main.py'
+
+      - name: Pubblica l'eseguibile nelle GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe  # Prende l'eseguibile generato dalla tua action
+          generate_release_notes: true # Genera automaticamente le note di rilascio dai commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

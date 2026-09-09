@@ -1,5 +1,5 @@
 name: 'Build Python to EXE'
-description: 'Compila uno script Python in un file eseguibile (.exe) usando PyInstaller'
+description: 'Compila uno script Python in un file eseguibile (.exe) con supporto automatico per requirements.txt'
 inputs:
   python-version:
     description: 'Versione di Python da utilizzare'
@@ -17,11 +17,19 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
-    - name: Install dependencies
+    - name: Install dependencies automatically
       shell: bash
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
+        
+        # Controlla se esiste un requirements.txt nel repository del progetto
+        if [ -f "requirements.txt" ]; then
+          echo "==> Trovato requirements.txt, installazione dipendenze in corso..."
+          pip install -r requirements.txt
+        else
+          echo "==> Nessun requirements.txt trovato. Verrà usato solo PyInstaller."
+        fi
 
     - name: Build EXE with PyInstaller
       shell: bash

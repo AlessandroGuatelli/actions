@@ -1,6 +1,0 @@
-jobs:
-  call-template:
-    uses: AlessandroGuatelli/actions/.github/workflows/build-python-exe-template.yml@main
-    with:
-      python-version: "3.12"
-      script-name: "main.py"

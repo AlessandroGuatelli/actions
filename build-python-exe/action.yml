@@ -1,17 +1,49 @@
 name: 'Build Python to EXE'
-description: 'Compila in EXE con supporto requirements.txt e certificati SSL'
+description: 'Compila in EXE con versioning automatico e ricerca dello script'
+
 inputs:
   python-version:
-    description: 'Versione di Python'
-    required: false
     default: '3.12'
   script-name:
-    description: 'Script principale'
-    required: false
     default: 'main.py'
+
 runs:
   using: 'composite'
   steps:
+    - name: Set up Git
+      shell: bash
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+
+    - name: Fetch tags
+      shell: bash
+      run: git fetch --tags
+
+    - name: Calcola versione
+      id: version
+      shell: bash
+      run: |
+        LAST_TAG=$(git describe --tags `git rev-list --tags --max-count=1` 2>/dev/null || echo "")
+        
+        if [ -z "$LAST_TAG" ]; then
+          echo "Nessun tag trovato, parto da v1.0.0"
+          NEW_TAG="v1.0.0"
+        else
+          echo "Ultimo tag trovato: $LAST_TAG"
+          IFS='.' read -r major minor patch <<< "${LAST_TAG#v}"
+          NEW_TAG="v$major.$minor.$((patch + 1))"
+        fi
+        
+        echo "Nuova versione: $NEW_TAG"
+        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+    - name: Crea nuovo tag
+      shell: bash
+      run: |
+        git tag ${{ steps.version.outputs.new_tag }}
+        git push origin ${{ steps.version.outputs.new_tag }}
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -22,18 +54,34 @@ runs:
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller certifi
-        
-        if [ -f "requirements.txt" ]; then
-          echo "Trovato requirements.txt"
-          pip install -r requirements.txt
+        if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+
+    - name: Trova lo script
+      id: find_script
+      shell: bash
+      run: |
+        SCRIPT_PATH=$(find . -type f -name "${{ inputs.script-name }}" | head -n 1)
+        if [ -z "$SCRIPT_PATH" ]; then
+          echo "❌ Script non trovato"
+          exit 1
         fi
+        echo "script_path=$SCRIPT_PATH" >> $GITHUB_OUTPUT
 
     - name: Build EXE
       shell: bash
-      run: pyinstaller --onefile --collect-all certifi ${{ inputs.script-name }}
+      run: pyinstaller --onefile --collect-all certifi "${{ steps.find_script.outputs.script_path }}"
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: App-Eseguibile
+        name: App-Eseguibile-${{ steps.version.outputs.new_tag }}
         path: dist/*.exe
+
+    - name: Pubblica Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.new_tag }}
+        files: dist/*.exe
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

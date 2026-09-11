@@ -70,7 +70,7 @@ runs:
 
     - name: Build EXE
       shell: bash
-      # L'eseguibile verrà comunque generato nella cartella /dist
+      # L'eseguibile verrà generato nella cartella /dist
       run: pyinstaller --onefile --collect-all certifi "${{ steps.locate-script.outputs.script_path }}"
 
     - name: Upload Artifact
@@ -88,6 +88,7 @@ runs:
         tag_name: ${{ inputs.tag-name }}
         files: dist/*.exe
         generate_release_notes: true
+        fail_on_unmatched_files: true
       env:
-        # I segreti non passano nativamente alle composite action, vanno mappati esplicitamente
+        # I segreti vanno mappati esplicitamente alle variabili d'ambiente
         GITHUB_TOKEN: ${{ inputs.github-token }}
